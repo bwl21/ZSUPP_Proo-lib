@@ -290,6 +290,7 @@ class PandocBeautifier
         outfileHtml  = "#{outdir}/#{outname}.html".to_osPath
         outfileRtf   = "#{outdir}/#{outname}.rtf".to_osPath
         outfileLatex = "#{outdir}/#{outname}.latex".to_osPath
+        outfileText = "#{outdir}/#{outname}.txt".to_osPath
         
         
         #todo: handle latexStyleFile by configuration
