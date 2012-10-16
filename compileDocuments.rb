@@ -68,7 +68,7 @@ config.input.each{|f| cleaner.beautify(f)}
 
 
 # now compile the doucment
-PandocBeautifier.new.generateDocument(config.input, config.outdir, config.outname, config.format, config.vars)
+PandocBeautifier.new.generateDocument(config.input, config.outdir, config.outname, config.format, config.vars, config.editions)
 
 
 

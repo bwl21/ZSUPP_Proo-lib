@@ -156,8 +156,8 @@ class ProoConfig
     :outname,             # basis to determine the output files
     :format,              # array of output formats
     :traceSortOrder,      # Array of strings to determine the sort ord
-    :vars                 # hash of variables for pandoc
-    
+    :vars,                 # hash of variables for pandoc
+    :editions             # hash of editions for pandoc
     
     # constructor
     # @param [String] configFileName  name of the configfile (without .yaml)
@@ -182,6 +182,7 @@ class ProoConfig
         @format         = selectedConfig[:format]
         @traceSortOrder = selectedConfig[:traceSortOrder]
         @vars           = selectedConfig[:vars] || {}
+        @editions       = selectedConfig[:editions] || nil
     end
     
 end
@@ -200,6 +201,11 @@ class PandocBeautifier
     #                  if none is specified, a default logger
     #                  will be implemented.
     def initialize(logger=nil)
+      
+      @view_pattern = /~~ZG((\s*(\w+))*)~~/
+      @tempdir = Dir.mktmpdir
+      
+      
       if logger == nil
           @log = Logger.new(STDOUT)
           @log.level = Logger::WARN
@@ -255,6 +261,94 @@ class PandocBeautifier
         end
     end
     
+    #
+    # Ths determines the view filter
+    #
+    # @param [String] line - the current input line
+    # @param [String] view - the currently selected view
+    # 
+    # @return true/false if a view-command is found, else nil
+    def get_filter_command(line, view)
+      r = line.match(@view_pattern)
+
+      if not r.nil?
+        found = r[1].split(" ")
+        result = (found & [view, "all"].flatten).any?
+      else
+        result = nil
+      end
+      
+      result
+    end
+    
+    #
+    # This filters the document according to the target audience
+    #
+    # @param [String] inputfile name of inputfile
+    # @param [String] outputfile name of outputfile
+    # @param [String] view - name of intended view
+    
+    def filter_document_variant(inputfile, outputfile, view)
+      
+      input_data = File.open(inputfile){|f| f.readlines}
+      
+      output_data = Array.new
+      is_active = true
+      input_data.each{|l|
+        switch=self.get_filter_command(l, view)
+        l.gsub!(@view_pattern, "")
+        is_active = switch unless switch.nil?
+        #puts "#{view}: #{is_active}, #{l}"
+      
+        output_data << l if is_active
+      }
+
+      File.open(outputfile, "w"){|f| f.puts output_data.join }
+    end
+    
+    #
+    # This filters the document according to the target audience
+    #
+    # @param [String] inputfile name of inputfile
+    # @param [String] outputfile name of outputfile
+    # @param [String] view - name of intended view
+    
+    def process_debug_info(inputfile, outputfile, view)
+      
+      input_data = File.open(inputfile){|f| f.readlines}
+      
+      output_data = Array.new
+
+      input_data.each{|l|
+        l.gsub!(@view_pattern){|p| "\\rule{2cm}{0.5mm}\\marginpar{#{$1.strip}}"}
+        l.gsub!(/todo:|TODO:/){|p| "#{p}\\marginpar{TODO}"}
+        
+        output_data << l
+      }
+
+      File.open(outputfile, "w"){|f| f.puts output_data.join }
+    end
+    
+    
+    
+    # This compiles the input documents to one single file
+    # it also beautifies the input files
+    #
+    # @param [Array of String] input - the input files to be processed in the given sequence
+    # @param [String] oputput - the the name of the output file
+    def collect_document(input, output)
+      inputs=input.map{|xx| xx.esc.to_osPath }.join(" ")  # qoute cond combine the inputs
+
+      #now combine the input files
+      cmd="pandoc -s -S -o #{output} --ascii #{inputs}" # note that inputs is already quoted
+      system(cmd)
+      if $?.success? then
+          PandocBeautifier.new().beautify(output)
+      end         
+    end
+    
+    
+    
     
     #
     # This generates the final document
@@ -263,11 +357,44 @@ class PandocBeautifier
     # @param [String] outname the base name of the output file. It is a basename in case the
     #                 output format requires multiple files
     # @param [Array of String] format list of formats which shall be generated.
-    #                                 supported formats: "pdf", "latex", "html", "docx", "rtf"
-    # @param [String] language. It is passed 
+    #                                 supported formats: "pdf", "latex", "html", "docx", "rtf", txt
+    # @param [Hash] vars - the variables passed to pandoc
+    # @param [Hash] editions - the editions to process; default nil - no edition processing
+    def generateDocument(input, outdir, outname, format, vars, editions=nil)       
+      
+      temp_filename = "#{@tempdir}/x.md".to_osPath
+      collect_document(input, temp_filename)
+      
+      if editions.nil?
+        render_document(temp_filename, outdir, outname, format, vars)
+      else
+        editions.each{|edition_name, properties|
+          edition_out_filename = "#{outname}_#{properties[:filepart]}"
+          edition_temp_filename = "#{@tempdir}/#{edition_out_filename}.md"
+          if properties[:debug]
+            process_debug_info(temp_filename, edition_temp_filename, edition_name.to_s) 
+            render_document(edition_temp_filename, outdir, edition_out_filename, "pdf", vars)                       
+          else            
+            filter_document_variant(temp_filename, edition_temp_filename, edition_name.to_s) 
+            render_document(edition_temp_filename, outdir, edition_out_filename, format, vars)        
+          end
+        }
+      end
+    end
     
-    def generateDocument(input, outdir, outname, format, vars)
-        
+    #
+    # This renders the final document
+    # @param [String] input the input file
+    # @param [String] outdir the output directory
+    # @param [String] outname the base name of the output file. It is a basename in case the
+    #                 output format requires multiple files
+    # @param [Array of String] format list of formats which shall be generated.
+    #                                 supported formats: "pdf", "latex", "html", "docx", "rtf", txt
+    # @param [Hash] vars - the variables passed to pandoc
+    
+    def render_document(input, outdir, outname, format, vars)
+    
+    
         #TODO: Clarify the following
         # on Windows, Tempdir contains a drive letter. But drive letter
         # seems not to work in pandoc -> pdf if the path separator ist forward
@@ -279,33 +406,24 @@ class PandocBeautifier
         #
         # for whatever Reason, I decided for 2.
         
-        inputs=input.map{|xx| xx.esc.to_osPath }.join(" ")  # qoute cond combine the inputs
-        tempdir = Dir.mktmpdir
-        
-        tempfile     = "#{tempdir}/x.md".to_osPath
-        tempfilePdf  = "#{tempdir}/x.TeX.md".to_osPath
-        tempfileHtml = "#{tempdir}/x.html.md".to_osPath
+        tempfile     = input
+        tempfilePdf  = "#{@tempdir}/x.TeX.md".to_osPath
+        tempfileHtml = "#{@tempdir}/x.html.md".to_osPath
         outfilePdf   = "#{outdir}/#{outname}.pdf".to_osPath
         outfileDocx  = "#{outdir}/#{outname}.docx".to_osPath
         outfileHtml  = "#{outdir}/#{outname}.html".to_osPath
         outfileRtf   = "#{outdir}/#{outname}.rtf".to_osPath
         outfileLatex = "#{outdir}/#{outname}.latex".to_osPath
         outfileText  = "#{outdir}/#{outname}.txt".to_osPath
-        outfileSlide = "#{outdir}/#{outname}.slide.pdf".to_osPath
-        
+        outfileSlide = "#{outdir}/#{outname}.slide.html".to_osPath        
         
         #todo: handle latexStyleFile by configuration
         latexStyleFile = File.dirname(File.expand_path(__FILE__))+"/../../ZSUPP_Styles/default.latex"
         latexStyleFile = File.expand_path(latexStyleFile).to_osPath
-        
-        #now combine the input files
-        cmd="pandoc -s -S -o #{tempfile} --ascii #{inputs}" # note that inputs is already quoted
-        system(cmd)
-        
+
         vars_string=vars.map.map{|key, value| "-V #{key}=#{value}"}.join(" ")
         
         if $?.success? then
-            PandocBeautifier.new().beautify(tempfile)
             
             if format.include?("pdf") then
                 ReferenceTweaker.new("pdf").prepareFile(tempfile, tempfilePdf)
@@ -349,6 +467,24 @@ class PandocBeautifier
                 
                 cmd="pandoc -S #{tempfileHtml.esc} --toc --standalone --self-contained --ascii --number  #{vars_string}" +
                 " -o  #{outfileRtf.esc}"
+                `#{cmd}`
+            end
+            
+            if format.include?("txt") then
+                
+                ReferenceTweaker.new("pdf").prepareFile(tempfile, tempfileHtml)
+                
+                cmd="pandoc -S #{tempfileHtml.esc} --toc --standalone --self-contained --ascii --number  #{vars_string}" +
+                " -t plain -o  #{outfileText.esc}"
+                `#{cmd}`
+            end
+            
+            if format.include?("slide") then
+                
+                ReferenceTweaker.new("slide").prepareFile(tempfile, tempfilePdf)
+                
+                cmd="pandoc -S #{tempfileHtml.esc} --toc --standalone --number #{vars_string}" +
+                "  --ascii -t dzslides --slide-level 2 -o  #{outfileSlide.esc}"
                 `#{cmd}`
             end
             else
