@@ -320,7 +320,17 @@ class PandocBeautifier
       output_data = Array.new
 
       input_data.each{|l|
-        l.gsub!(@view_pattern){|p| "\\rule{2cm}{0.5mm}\\marginpar{#{$1.strip}}"}
+        l.gsub!(@view_pattern){|p| 
+          [
+           if $1.strip == "all" then
+             "\\color{black}"
+           else
+             "\\color{red}"
+           end,
+           
+           "\\rule{2cm}{0.5mm}\\marginpar{#{$1.strip}}"
+           ].join
+        }
         l.gsub!(/todo:|TODO:/){|p| "#{p}\\marginpar{TODO}"}
         
         output_data << l
@@ -371,6 +381,8 @@ class PandocBeautifier
         editions.each{|edition_name, properties|
           edition_out_filename = "#{outname}_#{properties[:filepart]}"
           edition_temp_filename = "#{@tempdir}/#{edition_out_filename}.md"
+          vars[:title] = "\"#{properties[:title]}\""
+
           if properties[:debug]
             process_debug_info(temp_filename, edition_temp_filename, edition_name.to_s) 
             render_document(edition_temp_filename, outdir, edition_out_filename, "pdf", vars)                       
