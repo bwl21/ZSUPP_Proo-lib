@@ -381,11 +381,11 @@ class PandocBeautifier
         editions.each{|edition_name, properties|
           edition_out_filename = "#{outname}_#{properties[:filepart]}"
           edition_temp_filename = "#{@tempdir}/#{edition_out_filename}.md"
-          vars[:title] = "\"#{properties[:title]}\""
+          vars[:title] = properties[:title]
 
           if properties[:debug]
             process_debug_info(temp_filename, edition_temp_filename, edition_name.to_s) 
-            render_document(edition_temp_filename, outdir, edition_out_filename, "pdf", vars)                       
+            render_document(edition_temp_filename, outdir, edition_out_filename, ["pdf", "latex"], vars)                       
           else            
             filter_document_variant(temp_filename, edition_temp_filename, edition_name.to_s) 
             render_document(edition_temp_filename, outdir, edition_out_filename, format, vars)        
@@ -433,14 +433,14 @@ class PandocBeautifier
         latexStyleFile = File.dirname(File.expand_path(__FILE__))+"/../../ZSUPP_Styles/default.latex"
         latexStyleFile = File.expand_path(latexStyleFile).to_osPath
 
-        vars_string=vars.map.map{|key, value| "-V #{key}=#{value}"}.join(" ")
+        vars_string=vars.map.map{|key, value| "-V #{key}=\"#{value}\""}.join(" ")
         
         if $?.success? then
             
             if format.include?("pdf") then
                 ReferenceTweaker.new("pdf").prepareFile(tempfile, tempfilePdf)
                 
-                cmd="pandoc -S #{tempfilePdf.esc} --toc --standalone --number #{vars_string}" +
+                cmd="pandoc -S #{tempfilePdf.esc} --toc --standalone --latex-engine xelatex --number #{vars_string}" +
                 " --template #{latexStyleFile.esc} --ascii -o  #{outfilePdf.esc}"
                 `#{cmd}`
             end
@@ -449,7 +449,7 @@ class PandocBeautifier
                 
                 ReferenceTweaker.new("pdf").prepareFile(tempfile, tempfilePdf)
                 
-                cmd="pandoc -S #{tempfilePdf.esc} --toc --standalone --number  #{vars_string}" +
+                cmd="pandoc -S #{tempfilePdf.esc} --toc --standalone  --latex-engine xelatex --number #{vars_string}" +
                 " --template #{latexStyleFile.esc} --ascii -o  #{outfileLatex.esc}"
                 `#{cmd}`
             end
