@@ -156,7 +156,7 @@ class ProoConfig
     :outname,             # basis to determine the output files
     :format,              # array of output formats
     :traceSortOrder,      # Array of strings to determine the sort ord
-    :vars,                 # hash of variables for pandoc
+    :vars,                # hash of variables for pandoc
     :editions             # hash of editions for pandoc
     
     # constructor
@@ -208,8 +208,12 @@ class PandocBeautifier
       
       if logger == nil
           @log = Logger.new(STDOUT)
-          @log.level = Logger::WARN
-          @log.datetime_format = "%Y-%m-%d %H:%M:%S"          
+          @log.level = Logger::INFO
+          @log.datetime_format = "%Y-%m-%d %H:%M:%S" 
+          @log.formatter = proc do |severity, datetime, progname, msg|
+              "#{datetime}: #{msg}\n"
+          end
+                 
       else
          @log = logger
       end
@@ -221,11 +225,8 @@ class PandocBeautifier
     # @param [String] file the name of the file to be bautified
     def beautify(file)
                 
-        @log.formatter = proc do |severity, datetime, progname, msg|
-            "#{datetime}: #{msg}\n"
-        end
-        
-        @log.info(" Cleaning: \"#{file}\"")
+
+        @log.debug(" Cleaning: \"#{file}\"")
 
         docfile  = File.new(file)
         olddoc   = docfile.readlines.join
@@ -251,9 +252,9 @@ class PandocBeautifier
             if (not olddoc == newdoc) then  ##only touch the file if it is really changed
                 File.open(file, "w"){|f| f.puts(newdoc)}
                 File.open(file+".bak", "w"){|f| f.puts(olddoc)} # (RS_Mdc_) # remove this if needed
-                @log.warn("  cleaned: \"#{file}\"")
+                @log.debug("  cleaned: \"#{file}\"")
                 else
-                @log.warn("was clean: \"#{file}\"")
+                @log.debug("was clean: \"#{file}\"")
             end
             #TODO: error handling here
             else
@@ -350,6 +351,7 @@ class PandocBeautifier
       inputs=input.map{|xx| xx.esc.to_osPath }.join(" ")  # qoute cond combine the inputs
 
       #now combine the input files
+      @log.info("combining the input files")
       cmd="pandoc -s -S -o #{output} --ascii #{inputs}" # note that inputs is already quoted
       system(cmd)
       if $?.success? then
@@ -407,103 +409,106 @@ class PandocBeautifier
     def render_document(input, outdir, outname, format, vars)
     
     
-        #TODO: Clarify the following
-        # on Windows, Tempdir contains a drive letter. But drive letter
-        # seems not to work in pandoc -> pdf if the path separator ist forward
-        # slash. There are two options to overcome this
-        #
-        # 1. set tempdir such that it does not contain a drive letter
-        # 2. use Dir.mktempdir but ensure that all provided file names
-        #    use the platform specific SEPARATOR
-        #
-        # for whatever Reason, I decided for 2.
+      #TODO: Clarify the following
+      # on Windows, Tempdir contains a drive letter. But drive letter
+      # seems not to work in pandoc -> pdf if the path separator ist forward
+      # slash. There are two options to overcome this
+      #
+      # 1. set tempdir such that it does not contain a drive letter
+      # 2. use Dir.mktempdir but ensure that all provided file names
+      #    use the platform specific SEPARATOR
+      #
+      # for whatever Reason, I decided for 2.
         
-        tempfile     = input
-        tempfilePdf  = "#{@tempdir}/x.TeX.md".to_osPath
-        tempfileHtml = "#{@tempdir}/x.html.md".to_osPath
-        outfilePdf   = "#{outdir}/#{outname}.pdf".to_osPath
-        outfileDocx  = "#{outdir}/#{outname}.docx".to_osPath
-        outfileHtml  = "#{outdir}/#{outname}.html".to_osPath
-        outfileRtf   = "#{outdir}/#{outname}.rtf".to_osPath
-        outfileLatex = "#{outdir}/#{outname}.latex".to_osPath
-        outfileText  = "#{outdir}/#{outname}.txt".to_osPath
-        outfileSlide = "#{outdir}/#{outname}.slide.html".to_osPath        
+      tempfile     = input
+      tempfilePdf  = "#{@tempdir}/x.TeX.md".to_osPath
+      tempfileHtml = "#{@tempdir}/x.html.md".to_osPath
+      outfilePdf   = "#{outdir}/#{outname}.pdf".to_osPath
+      outfileDocx  = "#{outdir}/#{outname}.docx".to_osPath
+      outfileHtml  = "#{outdir}/#{outname}.html".to_osPath
+      outfileRtf   = "#{outdir}/#{outname}.rtf".to_osPath
+      outfileLatex = "#{outdir}/#{outname}.latex".to_osPath
+      outfileText  = "#{outdir}/#{outname}.txt".to_osPath
+      outfileSlide = "#{outdir}/#{outname}.slide.html".to_osPath        
         
-        #todo: handle latexStyleFile by configuration
-        latexStyleFile = File.dirname(File.expand_path(__FILE__))+"/../../ZSUPP_Styles/default.latex"
-        latexStyleFile = File.expand_path(latexStyleFile).to_osPath
+      #todo: handle latexStyleFile by configuration
+      latexStyleFile = File.dirname(File.expand_path(__FILE__))+"/../../ZSUPP_Styles/default.latex"
+      latexStyleFile = File.expand_path(latexStyleFile).to_osPath
 
-        vars_string=vars.map.map{|key, value| "-V #{key}=\"#{value}\""}.join(" ")
+      vars_string=vars.map.map{|key, value| "-V #{key}=#{value.esc}"}.join(" ")
+      
+      @log.info("generating #{outname} as [#{format.join(', ')}]")
         
-        if $?.success? then
+      if $?.success? then
             
-            if format.include?("pdf") then
-                ReferenceTweaker.new("pdf").prepareFile(tempfile, tempfilePdf)
+        if format.include?("pdf") then
+          ReferenceTweaker.new("pdf").prepareFile(tempfile, tempfilePdf)
                 
-                cmd="pandoc -S #{tempfilePdf.esc} --toc --standalone --latex-engine xelatex --number #{vars_string}" +
-                " --template #{latexStyleFile.esc} --ascii -o  #{outfilePdf.esc}"
-                `#{cmd}`
-            end
-            
-            if format.include?("latex") then
-                
-                ReferenceTweaker.new("pdf").prepareFile(tempfile, tempfilePdf)
-                
-                cmd="pandoc -S #{tempfilePdf.esc} --toc --standalone  --latex-engine xelatex --number #{vars_string}" +
-                " --template #{latexStyleFile.esc} --ascii -o  #{outfileLatex.esc}"
-                `#{cmd}`
-            end
-            
-            if format.include?("html") then
-                
-                ReferenceTweaker.new("html").prepareFile(tempfile, tempfileHtml)
-                
-                cmd="pandoc -S #{tempfileHtml.esc} --toc --standalone --self-contained --ascii --number  #{vars_string}" +
-                " -o #{outfileHtml.esc}"
-                
-                `#{cmd}`
-            end
-            
-            if format.include?("docx") then
-                
-                ReferenceTweaker.new("html").prepareFile(tempfile, tempfileHtml)
-                
-                cmd="pandoc -S #{tempfileHtml.esc} --toc --standalone --self-contained --ascii --number  #{vars_string}" +
-                " -o  #{outfileDocx.esc}"
-                `#{cmd}`
-            end
-            
-            if format.include?("rtf") then
-                
-                ReferenceTweaker.new("html").prepareFile(tempfile, tempfileHtml)
-                
-                cmd="pandoc -S #{tempfileHtml.esc} --toc --standalone --self-contained --ascii --number  #{vars_string}" +
-                " -o  #{outfileRtf.esc}"
-                `#{cmd}`
-            end
-            
-            if format.include?("txt") then
-                
-                ReferenceTweaker.new("pdf").prepareFile(tempfile, tempfileHtml)
-                
-                cmd="pandoc -S #{tempfileHtml.esc} --toc --standalone --self-contained --ascii --number  #{vars_string}" +
-                " -t plain -o  #{outfileText.esc}"
-                `#{cmd}`
-            end
-            
-            if format.include?("slide") then
-                
-                ReferenceTweaker.new("slide").prepareFile(tempfile, tempfilePdf)
-                
-                cmd="pandoc -S #{tempfileHtml.esc} --toc --standalone --number #{vars_string}" +
-                "  --ascii -t dzslides --slide-level 2 -o  #{outfileSlide.esc}"
-                `#{cmd}`
-            end
-            else
-            
-            #TODO make a try catch block kere
-            
+          cmd="pandoc -S #{tempfilePdf.esc} --toc --standalone --latex-engine xelatex --number #{vars_string}" +
+          " --template #{latexStyleFile.esc} --ascii -o  #{outfilePdf.esc}"
+          `#{cmd}`
         end
+            
+        if format.include?("latex") then
+                
+          ReferenceTweaker.new("pdf").prepareFile(tempfile, tempfilePdf)
+                
+          cmd="pandoc -S #{tempfilePdf.esc} --toc --standalone  --latex-engine xelatex --number #{vars_string}" +
+          " --template #{latexStyleFile.esc} --ascii -o  #{outfileLatex.esc}"
+          `#{cmd}`
+        end
+            
+        if format.include?("html") then
+                
+          ReferenceTweaker.new("html").prepareFile(tempfile, tempfileHtml)
+                
+          cmd="pandoc -S #{tempfileHtml.esc} --toc --standalone --self-contained --ascii --number  #{vars_string}" +
+          " -o #{outfileHtml.esc}"
+                
+          `#{cmd}`
+        end
+            
+        if format.include?("docx") then
+                
+          ReferenceTweaker.new("html").prepareFile(tempfile, tempfileHtml)
+                
+          cmd="pandoc -S #{tempfileHtml.esc} --toc --standalone --self-contained --ascii --number  #{vars_string}" +
+          " -o  #{outfileDocx.esc}"
+          `#{cmd}`
+        end
+            
+        if format.include?("rtf") then
+                
+          ReferenceTweaker.new("html").prepareFile(tempfile, tempfileHtml)
+                
+          cmd="pandoc -S #{tempfileHtml.esc} --toc --standalone --self-contained --ascii --number  #{vars_string}" +
+          " -o  #{outfileRtf.esc}"
+          `#{cmd}`
+        end
+            
+        if format.include?("txt") then
+                
+          ReferenceTweaker.new("pdf").prepareFile(tempfile, tempfileHtml)
+                
+          cmd="pandoc -S #{tempfileHtml.esc} --toc --standalone --self-contained --ascii --number  #{vars_string}" +
+          " -t plain -o  #{outfileText.esc}"
+          `#{cmd}`
+        end
+            
+        if format.include?("slide") then
+                
+          ReferenceTweaker.new("slide").prepareFile(tempfile, tempfilePdf)
+                
+          cmd="pandoc -S #{tempfileHtml.esc} --toc --standalone --number #{vars_string}" +
+          "  --ascii -t dzslides --slide-level 2 -o  #{outfileSlide.esc}"
+          `#{cmd}`
+        end
+      else
+            
+        @log.error "failed to perform #{cmd}"
+        #TODO make a try catch block kere
+            
+      end
         
     end
 
