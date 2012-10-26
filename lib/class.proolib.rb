@@ -29,6 +29,7 @@ TRACE_ANCHOR_PATTERN  = /\[(\w+_\w+_\w+)\](\s*\*\*)/
 UPTRACE_REF_PATTERN   = /\}\( ((\w+_\w+_\w+) (,\s*\w+_\w+_\w+)*)\)/x
 TRACE_REF_PATTERN     = /->\[(\w+_\w+_\w+)\]/
 
+INCLUDE_PDF_PATTERN   = /^\s+~~PDF\s+"(.+)" \s+ "(.+)" \s* (\d*) \s* (\d+-\d+)?~~/x
 
 
 
@@ -114,6 +115,30 @@ class ReferenceTweaker
         infileIo=File.new(infile)
         text = infileIo.readlines.join
         infileIo.close
+        
+        #include pdf filesl
+        
+        if @target == "pdf"
+          text.gsub!(INCLUDE_PDF_PATTERN){|m| 
+            if $4
+              pages="[pages=#{$4}]"
+            else
+              pages=""
+            end
+            
+            if $3.length > 0
+              level=$3
+            else
+              level=9
+            end
+              
+            "\n\n\\cleardoublepage\n\\bookmark[level=#{level},page=\\thepage]{#{$2}}\n\\includepdf#{pages}{#{$1}}"
+          }
+        else
+          text.gsub!(INCLUDE_PDF_PATTERN){|m|
+            "[#{$2}](#{$1})"
+          }       
+        end
         
         #substitute the anchors
         if @target == "pdf" then
@@ -202,7 +227,8 @@ class PandocBeautifier
     #                  will be implemented.
     def initialize(logger=nil)
       
-      @view_pattern = /~~ZG((\s*(\w+))*)~~/
+      @view_pattern = /~~ED((\s*(\w+))*)~~/
+    # @view_pattern = /<\?ED((\s*(\w+))*)\?>/
       @tempdir = Dir.mktmpdir
       
       
@@ -299,7 +325,7 @@ class PandocBeautifier
         switch=self.get_filter_command(l, view)
         l.gsub!(@view_pattern, "")
         is_active = switch unless switch.nil?
-        #puts "#{view}: #{is_active}, #{l}"
+        @log.debug "#{view}: #{is_active}, #{l}"
       
         output_data << l if is_active
       }
@@ -387,6 +413,7 @@ class PandocBeautifier
 
           if properties[:debug]
             process_debug_info(temp_filename, edition_temp_filename, edition_name.to_s) 
+            vars[:linenumbers] = "true"
             render_document(edition_temp_filename, outdir, edition_out_filename, ["pdf", "latex"], vars)                       
           else            
             filter_document_variant(temp_filename, edition_temp_filename, edition_name.to_s) 
