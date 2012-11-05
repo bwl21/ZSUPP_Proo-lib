@@ -455,7 +455,6 @@ class PandocBeautifier
                 end
             end
         }
-        debugger
         result
     end
     
