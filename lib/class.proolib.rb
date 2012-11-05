@@ -16,6 +16,7 @@ require 'logger'
 require 'yaml'
 require 'tmpdir'
 require 'nokogiri'
+require "rubyXL"
 
 
 require 'ruby-debug' #if not RUBY_PLATFORM=="i386-mingw32"
@@ -438,8 +439,25 @@ class PandocBeautifier
         end
     end
     
-    
-    
+    #
+    # This loads snipptes from xlsx file
+    # @param [String] filename of the xlsx file
+    # @return [Hash] a hash with the snippetes
+    #
+    def load_snippets_from_xlsx(file)
+        wb=RubyXL::Parser.parse(file)
+        result={}
+        wb.first.each{|row|
+            key, the_value = row
+            unless key.nil?
+                unless the_value.nil?
+                    result[key.value.to_sym] = the_value.value rescue ""
+                end
+            end
+        }
+        debugger
+        result
+    end
     
     #
     # This generates the final document
@@ -454,14 +472,28 @@ class PandocBeautifier
     # @param [Array of String] snippetfiles the list of files containing snippets
     def generateDocument(input, outdir, outname, format, vars, editions=nil, snippetfiles=nil)       
       
+      
+        # combine the input files
+        
         temp_filename = "#{@tempdir}/x.md".to_osPath
         collect_document(input, temp_filename)
+       
+        # process the snippets
       
         if not snippetfiles.nil?
             snippets={}
             snippetfiles.each{|f|
                 if File.exists?(f)
-                    x=YAML.load(File.new(f))
+                    type=File.extname(f)
+                    case type
+                    when ".yaml" 
+                        x=YAML.load(File.new(f))
+                    when ".xlsx"
+                        x=load_snippets_from_xlsx(f)
+                    else
+                        @log.error("Unsupported File format for snipptets: #{type}")
+                        x={}
+                    end
                     snippets.merge!(x)
                 else
                     @log.error("Snippet file not found: #{f}")
@@ -471,9 +503,12 @@ class PandocBeautifier
             replace_snippets_in_file(temp_filename, snippets) 
         end
       
+      
         if editions.nil?
+            # there are no editions
             render_document(temp_filename, outdir, outname, format, vars)
         else
+            # process the editions
             editions.each{|edition_name, properties|
                 edition_out_filename = "#{outname}_#{properties[:filepart]}"
                 edition_temp_filename = "#{@tempdir}/#{edition_out_filename}.md"
