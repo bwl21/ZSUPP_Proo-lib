@@ -11,32 +11,36 @@ require File.dirname(__FILE__) + "/class.Traceable.md"
 Treetop.load File.dirname(__FILE__) + "/mdTraceParser.treetop"
 
 
-class Traceable
+class TraceableSet
     
 
 
     # this generates a synopsis of traces in markdown Format
     # @param [Symbol] selectedCategory the the category of the Traceables
     #                 which shall be reported.
-    def self.reqtraceSynopsis(selectedCategory)
-        allTraces(selectedCategory).
-            sort_by{|x| traceOrderIndex(x.id) }.
+    def reqtraceSynopsis(selectedCategory)
+        all_traces(selectedCategory).
+            sort_by{|x| trace_order_index(x.id) }.
             map{|t|
                  tidm=t.id.gsub("_","-")
     
                  lContributes=t.contributes_to.
     #                  map{|c| cm=c.gsub("_","-"); "[\[#{c}\]](#RT-#{cm})"}
                        map{|c| cm=c.gsub("_","-"); "<a href=\"#RT-#{cm}\">\[#{c}\]</a>"}
+                       
+                   luptraces = [uptrace_ids[t.id]].flatten.compact.map{|x| self[x]}
+                   
+                   luptraces=luptraces.
+                       sort_by{|x| trace_order_index(x.id)}.            
+                       map{|u|
+                       um = u.id.gsub("_","-")
+                       "    - <a href=\"#RT-#{um}\">[#{u.id}]</a> #{u.header_orig}"
+                       }      
     
                  ["- ->[#{t.id}] <!-- --> <a id=\"RT-#{tidm}\"/>**#{t.header_orig}**" +
     #                     "  (#{t.contributes_to.join(', ')})", "",
                           "  (#{lContributes.join(', ')})", "",
-                    uptraces = t.supported_by_asTrace.
-                        sort_by{|x| traceOrderIndex(x.id)}.            
-                        map{|u|
-                        um = u.id.gsub("_","-")
-                        "    - <a href=\"#RT-#{um}\">[#{u.id}]</a> #{u.header_orig}"
-                        }
+                          luptraces
                 ].flatten.join("\n")
             }.join("\n\n")
     end
@@ -60,6 +64,8 @@ class Traceable
         result = parser.parse(raw_md_code)
 #        print " ... parsed"
         
+        result_set = TraceableSet.new
+        
         if result
             result.descendant.select{|x| x.getLabel==="trace"}.each{|c|
                 id       = c.traceId.payload.text_value
@@ -76,11 +82,13 @@ class Traceable
                 theTrace.trace_orig     = c.text_value
                 theTrace.contributes_to = uptraces.gsub!(/\s*/, "").split(",")
                 theTrace.category       = :SPECIFICATION_ITEM
+                result_set.add(theTrace)
             }
 #            puts " .... finished"
             else
             puts ["","-----------", texFile, parser.failure_reason].join("\n")
         end
+        result_set
     end
 
     
