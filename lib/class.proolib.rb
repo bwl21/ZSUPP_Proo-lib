@@ -30,7 +30,14 @@ TRACE_ANCHOR_PATTERN  = /\[(\w+_\w+_\w+)\](\s*\*\*)/
 UPTRACE_REF_PATTERN   = /\}\( ((\w+_\w+_\w+) (,\s*\w+_\w+_\w+)*)\)/x
 TRACE_REF_PATTERN     = /->\[(\w+_\w+_\w+)\]/
 
-INCLUDE_PDF_PATTERN   = /^\s+~~PDF\s+"(.+)" \s+ "(.+)" \s* (\d*) \s* (\d+-\d+)?~~/x
+#                                      filename
+#                                               heading
+#                                                          level
+#                                                                    pages to include
+#                                                                                    pageclearance        
+INCLUDE_PDF_PATTERN   = /^\s+~~PDF\s+"(.+)" \s+ "(.+)" \s* (\d*) \s* (\d+-\d+)? \s* (clearpage|cleardoublepage)?~~/x
+
+INCLUDE_MD_PATTERN    = /^\s+~~MD\s+"(.+)" \s+ "(.+)" \s* (\d*) \s* (\d+-\d+)? \s* (clearpage|cleardoublepage)?~~/x
 
 SNIPPET_PATTERN       = /~~SN \s+ (\w+)~~/x
 
@@ -135,10 +142,17 @@ class ReferenceTweaker
         
         if @target == "pdf"
             text.gsub!(INCLUDE_PDF_PATTERN){|m| 
+                
                 if $4
                     pages="[pages=#{$4}]"
                 else
                     pages=""
+                end
+            
+                if $5
+                    clearpage=$5
+                else
+                    clearpage="cleardoublepage"
                 end
             
                 if $3.length > 0
@@ -147,7 +161,7 @@ class ReferenceTweaker
                     level=9
                 end
               
-                "\n\n\\cleardoublepage\n\\bookmark[level=#{level},page=\\thepage]{#{$2}}\n\\includepdf#{pages}{#{$1}}"
+                "\n\n\\#{clearpage}\n\\bookmark[level=#{level},page=\\thepage]{#{$2}}\n\\includepdf#{pages}{#{$1}}"
             }
         else #if not pdf then it gets a regular external link
             text.gsub!(INCLUDE_PDF_PATTERN){|m|
@@ -445,7 +459,9 @@ class PandocBeautifier
     # @return [Hash] a hash with the snippetes
     #
     def load_snippets_from_xlsx(file)
-        wb=RubyXL::Parser.parse(file)
+        temp_filename = "#{@tempdir}/snippett.xlsx"
+        FileUtils::copy(file, temp_filename)
+        wb=RubyXL::Parser.parse(temp_filename)
         result={}
         wb.first.each{|row|
             key, the_value = row
