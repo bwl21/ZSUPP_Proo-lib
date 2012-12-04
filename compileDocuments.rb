@@ -18,9 +18,8 @@ else
 end
 $logger.datetime_format = "%Y-%m-%d %H:%M:%S" 
 $logger.formatter = proc do |severity, datetime, progname, msg|
-    "#{datetime}: #{msg}\n"
+    "[#{severity}] compileDocuments: #{datetime.strftime($logger.datetime_format)}: #{msg}\n"
 end
-
 
 
 # load the configuration
@@ -37,17 +36,30 @@ files = config.input
 
 if not config.traceSortOrder.nil?
 
-    # collect all traceables
-    files.each{|f| Traceable.processTracesInMdFile(f)}
+    traceable_set = TraceableSet.new
 
-    #TODO: use Logger here
-    puts "\n\undefined traces: #{Traceable.undefinedTraces.join(' ')}\n\n"
+    # collect all traceables
+    files.each{|f| 
+        x=TraceableSet.processTracesInMdFile(f)
+        traceable_set.merge(x)
+    }
+
+    undefineds=traceable_set.undefined_ids
+    $logger.warn "undefined traces: #{undefineds.join(' ')}" unless undefineds.empty?
+
+
+    # check duplicates
+    duplicates=traceable_set.duplicate_traces
+    if duplicates.count > 0
+      $logger.warn "duplicated trace ids found:"
+      duplicates.each{|d| d.each{|t| $logger.warn "#{t.id} in #{t.info}"}}
+    end  
 
     # write traceables to the intermediate Tracing file
     outname="#{rootdir}/../ZGEN_RequirementsTracing/ZGEN_Reqtrace.md"
 
-    # poke ths sort order for the traciables
-    Traceable.sortOrder=config.traceSortOrder if config.traceSortOrder
+    # poke ths sort order for the traceables
+    traceable_set.sort_order=config.traceSortOrder if config.traceSortOrder
     # generate synopsis of traceableruby 1.8.7 garbage at end of file
 
 
@@ -58,19 +70,18 @@ if not config.traceSortOrder.nil?
         fx.puts ""
         fx.puts "# Requirements Tracing"
         fx.puts ""
-        tracelist=Traceable.reqtraceSynopsis(:SPECIFICATION_ITEM)
+        tracelist=traceable_set.reqtraceSynopsis(:SPECIFICATION_ITEM)
         fx.puts tracelist
     }
 	
-    # outgput the graphxml
+    # output the graphxml
     # write traceables to the intermediate Tracing file
     outname="#{rootdir}/../ZGEN_RequirementsTracing/ZGEN_Reqtrace.graphml"
-    File.open(outname, "w") {|fx| fx.puts Traceable.to_graphml}
+    File.open(outname, "w") {|fx| fx.puts traceable_set.to_graphml}
     
     outname="#{rootdir}/../ZGEN_RequirementsTracing/ZGEN_ReqtraceToCompare.txt"
-    File.open(outname, "w") {|fx| fx.puts Traceable.to_compareEntries}
-
-
+    File.open(outname, "w") {|fx| fx.puts traceable_set.to_compareEntries}
+    
 end
 
 # now cleanup the sources
