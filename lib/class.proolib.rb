@@ -239,10 +239,13 @@ class ProoConfig
         @traceSortOrder = selectedConfig[:traceSortOrder]
         @vars           = selectedConfig[:vars] || {}
         @editions       = selectedConfig[:editions] || nil
-        @snippets       = selectedConfig[:snippets] || nil
+        snippets       = selectedConfig[:snippets]
+        if snippets.nil?
+            @snippets       = nil 
+        else
+            @snippets       = File.expand_path("#{basePath}/#{snippets}")
+        end
     end
-    
-    
 end
 
 
