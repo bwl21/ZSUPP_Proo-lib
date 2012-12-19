@@ -295,6 +295,7 @@ class PandocBeautifier
         # process the file in pandoc
         cmd="pandoc -s #{file.esc} -f markdown -t markdown --atx-headers --reference-links "
         newdoc = `#{cmd}`
+        @log.debug(" finished: \"#{file}\"")
         
         # tweak the quoting
         if $?.success? then        
@@ -344,7 +345,7 @@ class PandocBeautifier
             replacetext=snippets[$1.to_sym]
             if replacetext
                 changed=true
-                @log.debug("replaced snippet #{$1}")
+                @log.debug("replaced snippet #{$1} with #{replacetext}")
             else
                 replacetext=m
                 @log.warn("Snippet not found: #{$1}")
@@ -467,10 +468,22 @@ class PandocBeautifier
             key, the_value = row
             unless key.nil?
                 unless the_value.nil?
-                    result[key.value.to_sym] = the_value.value rescue ""
+                    result[key.value.to_sym] = resolve_xml_entities(the_value.value) rescue ""
                 end
             end
         }
+        result
+    end
+    
+    #
+    # this resolves xml entities in Text (lt, gt, amp)
+    # @param [String] text with entities
+    # @return [String] text with replaced entities
+    def resolve_xml_entities(text)
+        result=text
+        result.gsub!("&lt;", "<")
+        result.gsub!("&gt;", ">")
+        result.gsub!("&amp;", "&")
         result
     end
     
