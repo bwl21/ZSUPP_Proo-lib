@@ -214,7 +214,9 @@ class ProoConfig
     :traceSortOrder,      # Array of strings to determine the sort ord
     :vars,                # hash of variables for pandoc
     :editions,            # hash of editions for pandoc
-    :snippets             # Array of strings to determine snippet filenames
+    :snippets,            # Array of strings to determine snippet filenames
+    :downstream_tracefile, # String to save downstram filenames
+    :reqtracefile_base    # string to determine the requirements tracing results
     # constructor
     # @param [String] configFileName  name of the configfile (without .yaml)
     # @param [Symbol] configSelect Default configuration. If not specified
@@ -240,9 +242,9 @@ class ProoConfig
         @vars           = selectedConfig[:vars] || {}
         @editions       = selectedConfig[:editions] || nil
         @snippets       = selectedConfig[:snippets] || nil
+        @downstream_tracefile = selectedConfig[:downstream_tracefile] || nil
+        @reqtracefile_base    = selectedConfig[:reqtracefile_base]
     end
-    
-    
 end
 
 
@@ -658,6 +660,3 @@ class PandocBeautifier
     end
 
 end    
-    
-
-

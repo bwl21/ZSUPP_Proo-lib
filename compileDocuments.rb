@@ -36,6 +36,9 @@ files = config.input
 
 if not config.traceSortOrder.nil?
 
+    downstream_tracefile = config.downstream_tracefile # String to save downstram filenames
+    reqtracefile_base = config.reqtracefile_base       # string to determine the requirements tracing results
+
     traceable_set = TraceableSet.new
 
     # collect all traceables
@@ -56,7 +59,7 @@ if not config.traceSortOrder.nil?
     end  
 
     # write traceables to the intermediate Tracing file
-    outname="#{rootdir}/../ZGEN_RequirementsTracing/ZGEN_Reqtrace.md"
+    outname="#{rootdir}/#{reqtracefile_base}.md"
 
     # poke ths sort order for the traceables
     traceable_set.sort_order=config.traceSortOrder if config.traceSortOrder
@@ -73,14 +76,27 @@ if not config.traceSortOrder.nil?
         tracelist=traceable_set.reqtraceSynopsis(:SPECIFICATION_ITEM)
         fx.puts tracelist
     }
-	
+
     # output the graphxml
     # write traceables to the intermediate Tracing file
-    outname="#{rootdir}/../ZGEN_RequirementsTracing/ZGEN_Reqtrace.graphml"
+    outname="#{rootdir}/#{reqtracefile_base}.graphml"
     File.open(outname, "w") {|fx| fx.puts traceable_set.to_graphml}
     
-    outname="#{rootdir}/../ZGEN_RequirementsTracing/ZGEN_ReqtraceToCompare.txt"
+    outname="#{rootdir}/#{reqtracefile_base}Compare.txt"
     File.open(outname, "w") {|fx| fx.puts traceable_set.to_compareEntries}
+
+    # write the downstream_trace file - to be included in downstream - speciifcations
+    outname="#{rootdir}/#{downstream_tracefile}"
+    File.open(outname, "w") {|fx|
+                              fx.puts ""
+                              fx.puts "\\clearpage"
+                              fx.puts ""
+                              fx.puts "# Upstream Requirements"
+                              fx.puts ""
+                              fx.puts traceable_set.to_downstream_tracefile(:SPECIFICATION_ITEM)
+                            } unless downstream_tracefile.nil?
+
+
     
 end
 
