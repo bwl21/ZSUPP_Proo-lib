@@ -51,7 +51,7 @@ class TraceableSet
          all_traces(selectedCategory).
             sort_by{|x| trace_order_index(x.id) }.
             map{|t|
-                 "\n\n[#{t.id}] **#{t.header_orig}** { }(#{t.contributes_to.join(', ')})"
+                 "\n\n[#{t.id}] **#{t.header_orig}** { }()"
                }.join("\n\n")
     end
 

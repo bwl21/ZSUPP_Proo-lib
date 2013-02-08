@@ -38,21 +38,36 @@ if not config.traceSortOrder.nil?
 
     downstream_tracefile = config.downstream_tracefile # String to save downstram filenames
     reqtracefile_base = config.reqtracefile_base       # string to determine the requirements tracing results
+    upstream_tracefiles = config.upstream_tracefiles   # String to read upstream tracefiles
 
     traceable_set = TraceableSet.new
 
-    # collect all traceables
+    # collect all traceables in input
     files.each{|f| 
         x=TraceableSet.processTracesInMdFile(f)
         traceable_set.merge(x)
     }
 
-    undefineds=traceable_set.undefined_ids
+    # collect all upstream traceables
+    # 
+    upstream_traceable_set=TraceableSet.new
+    unless upstream_tracefiles.nil?
+         upstream_tracefiles.each{|f|
+            x=TraceableSet.processTracesInMdFile(f)
+            upstream_traceable_set.merge(x)
+        }
+    end
+
+    # check undefined traces
+    all_traceable_set=TraceableSet.new
+    all_traceable_set.merge(traceable_set)
+    all_traceable_set.merge(upstream_traceable_set)
+    undefineds=all_traceable_set.undefined_ids
     $logger.warn "undefined traces: #{undefineds.join(' ')}" unless undefineds.empty?
 
 
     # check duplicates
-    duplicates=traceable_set.duplicate_traces
+    duplicates=all_traceable_set.duplicate_traces
     if duplicates.count > 0
       $logger.warn "duplicated trace ids found:"
       duplicates.each{|d| d.each{|t| $logger.warn "#{t.id} in #{t.info}"}}
@@ -62,6 +77,7 @@ if not config.traceSortOrder.nil?
     outname="#{rootdir}/#{reqtracefile_base}.md"
 
     # poke ths sort order for the traceables
+    all_traceable_set.sort_order=config.traceSortOrder if config.traceSortOrder
     traceable_set.sort_order=config.traceSortOrder if config.traceSortOrder
     # generate synopsis of traceableruby 1.8.7 garbage at end of file
 
@@ -73,14 +89,14 @@ if not config.traceSortOrder.nil?
         fx.puts ""
         fx.puts "# Requirements Tracing"
         fx.puts ""
-        tracelist=traceable_set.reqtraceSynopsis(:SPECIFICATION_ITEM)
+        tracelist=all_traceable_set.reqtraceSynopsis(:SPECIFICATION_ITEM)
         fx.puts tracelist
     }
 
     # output the graphxml
     # write traceables to the intermediate Tracing file
     outname="#{rootdir}/#{reqtracefile_base}.graphml"
-    File.open(outname, "w") {|fx| fx.puts traceable_set.to_graphml}
+    File.open(outname, "w") {|fx| fx.puts all_traceable_set.to_graphml}
     
     outname="#{rootdir}/#{reqtracefile_base}Compare.txt"
     File.open(outname, "w") {|fx| fx.puts traceable_set.to_compareEntries}
@@ -97,16 +113,18 @@ if not config.traceSortOrder.nil?
                             } unless downstream_tracefile.nil?
 
 
+    # now add the upstream traces to input
+    files.concat( upstream_tracefiles) unless upstream_tracefiles.nil?
     
 end
 
 # now cleanup the sources
 
 cleaner = PandocBeautifier.new
-config.input.each{|f| cleaner.beautify(f)}
+files.each{|f| cleaner.beautify(f)}
 
 # now compile the doucment
-PandocBeautifier.new.generateDocument(config.input, config.outdir, config.outname, config.format, config.vars, config.editions, config.snippets)
+PandocBeautifier.new.generateDocument(files, config.outdir, config.outname, config.format, config.vars, config.editions, config.snippets)
 
 
 
