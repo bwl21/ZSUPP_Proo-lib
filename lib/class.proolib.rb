@@ -243,7 +243,7 @@ class ProoConfig
         if snippets.nil?
             @snippets       = nil 
         else
-            @snippets       = File.expand_path("#{basePath}/#{snippets}")
+            @snippets       = snippets.map{|file| File.expand_path("#{basePath}/#{file}")}
         end
     end
 end

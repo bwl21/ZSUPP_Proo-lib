@@ -7,7 +7,7 @@
 
 require 'rubygems'
 require 'nokogiri'
-require 'amatch'
+#require 'amatch'
 require 'diffy'
 #require 'ruby-debug'
 
