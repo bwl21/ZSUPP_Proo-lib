@@ -8,6 +8,8 @@ require File.dirname(__FILE__) + '/lib/class.Traceable.md.rb'
 require 'ruby-debug' if not RUBY_PLATFORM=="i386-mingw32"
 
 
+Encoding.default_internal = Encoding.default_external = "UTF-8" if RUBY_VERSION > "1.9"
+
 # install a global logger
 
 $logger = Logger.new(STDOUT)
