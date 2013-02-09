@@ -45,6 +45,16 @@ class TraceableSet
             }.join("\n\n")
     end
 
+
+    # this generates the downstream_tracefile
+    def to_downstream_tracefile(selectedCategory)
+         all_traces(selectedCategory).
+            sort_by{|x| trace_order_index(x.id) }.
+            map{|t|
+                 "\n\n[#{t.id}] **#{t.header_orig}** { }()"
+               }.join("\n\n")
+    end
+
 # this generates the todo - list
 
 # TODO: add this method
@@ -58,14 +68,14 @@ class TraceableSet
         parser.consume_all_input = true
         
         raw_md_code_file=File.open(mdFile)
-		   raw_md_code = raw_md_code_file.readlines.join
-		raw_md_code_file.close
-#        print mdFile
+        raw_md_code = raw_md_code_file.readlines.join
+        raw_md_code_file.close
+#       print mdFile
         result = parser.parse(raw_md_code)
-#        print " ... parsed"
+#       print " ... parsed\n" todo: use logger here
         
         result_set = TraceableSet.new
-        
+
         if result
             result.descendant.select{|x| x.getLabel==="trace"}.each{|c|
                 id       = c.traceId.payload.text_value

@@ -1,6 +1,6 @@
 
 require "lib/class.proolib.rb"
-require "ruby-debug"
+require 'ruby-debug' if not RUBY_PLATFORM=="i386-mingw32"
 
 
 foo = Freemind.new
