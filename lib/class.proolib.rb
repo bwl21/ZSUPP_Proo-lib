@@ -556,9 +556,10 @@ class PandocBeautifier
                 vars[:title] = properties[:title]
 
                 if properties[:debug]
-                    process_debug_info(temp_filename, edition_temp_filename, edition_name.to_s) 
-                    vars[:linenumbers] = "true"
-                    render_document(edition_temp_filename, outdir, edition_out_filename, ["pdf", "latex"], vars)                       
+                    process_debug_info(temp_filename, edition_temp_filename, edition_name.to_s)
+                    lvars=vars.clone 
+                    lvars[:linenumbers] = "true"
+                    render_document(edition_temp_filename, outdir, edition_out_filename, ["pdf", "latex"], lvars)                       
                 else            
                     filter_document_variant(temp_filename, edition_temp_filename, edition_name.to_s) 
                     render_document(edition_temp_filename, outdir, edition_out_filename, format, vars)        
