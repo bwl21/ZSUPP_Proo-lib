@@ -615,7 +615,7 @@ class PandocBeautifier
             if format.include?("pdf") then
                 ReferenceTweaker.new("pdf").prepareFile(tempfile, tempfilePdf)
                 
-                cmd="pandoc -S #{tempfilePdf.esc} --toc --standalone --latex-engine xelatex --number #{vars_string}" +
+                cmd="pandoc -S #{tempfilePdf.esc} --toc --standalone --latex-engine xelatex --number-sections #{vars_string}" +
                 " --template #{latexStyleFile.esc} --ascii -o  #{outfilePdf.esc}"
                 `#{cmd}`
             end
@@ -624,7 +624,7 @@ class PandocBeautifier
                 
                 ReferenceTweaker.new("pdf").prepareFile(tempfile, tempfilePdf)
                 
-                cmd="pandoc -S #{tempfilePdf.esc} --toc --standalone  --latex-engine xelatex --number #{vars_string}" +
+                cmd="pandoc -S #{tempfilePdf.esc} --toc --standalone  --latex-engine xelatex --number-sections #{vars_string}" +
                 " --template #{latexStyleFile.esc} --ascii -o  #{outfileLatex.esc}"
                 `#{cmd}`
             end
@@ -633,7 +633,7 @@ class PandocBeautifier
                 
                 ReferenceTweaker.new("html").prepareFile(tempfile, tempfileHtml)
                 
-                cmd="pandoc -S #{tempfileHtml.esc} --toc --standalone --self-contained --ascii --number  #{vars_string}" +
+                cmd="pandoc -S #{tempfileHtml.esc} --toc --standalone --self-contained --ascii --number-sections  #{vars_string}" +
                 " -o #{outfileHtml.esc}"
                 
                 `#{cmd}`
@@ -643,7 +643,7 @@ class PandocBeautifier
                 
                 ReferenceTweaker.new("html").prepareFile(tempfile, tempfileHtml)
                 
-                cmd="pandoc -S #{tempfileHtml.esc} --toc --standalone --self-contained --ascii --number  #{vars_string}" +
+                cmd="pandoc -S #{tempfileHtml.esc} --toc --standalone --self-contained --ascii --number-sections  #{vars_string}" +
                 " -o  #{outfileDocx.esc}"
                 `#{cmd}`
             end
@@ -652,7 +652,7 @@ class PandocBeautifier
                 
                 ReferenceTweaker.new("html").prepareFile(tempfile, tempfileHtml)
                 
-                cmd="pandoc -S #{tempfileHtml.esc} --toc --standalone --self-contained --ascii --number  #{vars_string}" +
+                cmd="pandoc -S #{tempfileHtml.esc} --toc --standalone --self-contained --ascii --number-sections  #{vars_string}" +
                 " -o  #{outfileRtf.esc}"
                 `#{cmd}`
             end
@@ -661,7 +661,7 @@ class PandocBeautifier
                 
                 ReferenceTweaker.new("pdf").prepareFile(tempfile, tempfileHtml)
                 
-                cmd="pandoc -S #{tempfileHtml.esc} --toc --standalone --self-contained --ascii --number  #{vars_string}" +
+                cmd="pandoc -S #{tempfileHtml.esc} --toc --standalone --self-contained --ascii --number-sections  #{vars_string}" +
                 " -t plain -o  #{outfileText.esc}"
                 `#{cmd}`
             end
