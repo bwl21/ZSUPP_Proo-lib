@@ -2,11 +2,10 @@
 
 This is a small ruby framework to process documents in the context of project organization.
 
-stay tuned for more documentation to come
+development here is not granted. I move the code to a gem now (wortsammler)
 
 as of now it is only internal
 
-one more line
 
 ## Prerequisites
 
